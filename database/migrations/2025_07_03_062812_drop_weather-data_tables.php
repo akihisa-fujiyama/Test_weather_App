@@ -11,15 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('weather-data', function (Blueprint $table) {
-            $table->id();
-            $table->string('location');
-            $table->date('date');
-            $table->json('forecast_json');
-            $table->timestamps();
-
-            $table->unique(['location', 'date']);
-        });
+        Schema::dropIfExists('weather-app');
     }
 
     /**
@@ -27,6 +19,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('weather');
+        //
     }
 };
