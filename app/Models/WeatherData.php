@@ -11,11 +11,10 @@ class WeatherData extends Model
     protected $fillable = [
         'location',
         'date',
-        'forecast_json',
+        'temperature',
+        'rain',
+        'weather',
     ];
 
-    protected $casts = [
-        'forecast_json' => 'array', // ここを追加！
-    ];
 }
 

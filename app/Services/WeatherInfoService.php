@@ -59,45 +59,81 @@ class WeatherInfoService
     ];
 
     public function getWeatherData(string $location): ?array
+{
+    try {
+            $today = Carbon::now('Asia/Tokyo')->toDateString();
+
+            // 既存の天気情報がないか確認
+            $weatherRecord = WeatherData::where('location', $location)
+                ->where('date', $today)
+                ->first();
+
+            if ($weatherRecord) {
+                return [
+                    'temp' => $weatherRecord->temperature,
+                    'description' => $weatherRecord->weather,
+                    'rain' => $weatherRecord->rain,
+                ];
+            }
+
+
+            // 都道府県名チェック
+            try {
+                if (!isset($this->prefectureKanjiToCity[$location])) {
+                    throw new \Exception("不正な都道府県名が指定されました: {$location}");
+                }
+                $city = $this->prefectureKanjiToCity[$location];
+            } catch (\Exception $e) {
+                \Log::error('都道府県名エラー', ['message' => $e->getMessage()]);
+                return null; // エラー時はnullを返して終了
+            }
+
+            //APIから情報取得
+            $city = $this->prefectureKanjiToCity[$location];
+            $apiKey = config('services.openweather.key');
+
+            $response = Http::get('https://api.openweathermap.org/data/2.5/weather', [
+                'q' => $city . ',jp',
+                'appid' => $apiKey,
+                'units' => 'metric',
+                'lang' => 'ja',
+            ]);
+
+            if (!$response->ok()) {
+                throw new \Exception('APIエラー：データを取得できませんでした。');
+            }
+
+            $data = $response->json();
+
+            $weatherInfo = $this->extractWeatherInfo($data);
+
+            //DBに天気情報保存
+            WeatherData::create([
+                'location' => $location,
+                'date' => $today,
+                'temperature' => $weatherInfo['temp'],
+                'rain' => $weatherInfo['rain'],
+                'weather' => $weatherInfo['description'],
+            ]);
+
+            return $weatherInfo;
+        } catch (\Exception $e) {
+            \Log::error('天気情報取得エラー', ['message' => $e->getMessage()]);
+            return null; // 失敗時はnullを返してコントローラーでエラーハンドリング
+        }
+    }
+
+
+    private function extractWeatherInfo(array $data): array
     {
-        $today = Carbon::now('Asia/Tokyo')->toDateString();
+        $temp = $data['main']['temp'] ?? null;
+        $description = $data['weather'][0]['description'] ?? null;
+        $rain = $data['rain']['1h'] ?? ($data['rain']['3h'] ?? 0);
 
-        // キャッシュ確認
-        $cache = WeatherData::where('location', $location)
-            ->where('date', $today)
-            ->first();
-
-        if ($cache) {
-            return json_decode($cache->forecast_json, true);
-        }
-
-        // キャッシュなし→API取得
-        if (!isset($this->prefectureKanjiToCity[$location])) {
-            return null;
-        }
-
-        $city = $this->prefectureKanjiToCity[$location];
-        $apiKey = config('services.openweather.key');
-
-        $response = Http::get('https://api.openweathermap.org/data/2.5/weather', [
-            'q' => $city . ',jp',
-            'appid' => $apiKey,
-            'units' => 'metric',
-            'lang' => 'ja',
-        ]);
-
-        if (!$response->ok()) {
-            return null;
-        }
-
-        $data = $response->json();
-
-        WeatherData::create([
-            'location' => $location,
-            'date' => $today,
-            'forecast_json' => json_encode($data),
-        ]);
-
-        return $data;
+        return [
+            'temp' => $temp,
+            'description' => $description,
+            'rain' => $rain,
+        ];
     }
 }
