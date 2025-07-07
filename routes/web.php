@@ -9,6 +9,8 @@ Route::get('/', function () {
 
 Route::get("/weather/{location}", [WeatherGetController::class, "showWeatherData"])->name("showWeatherData");
 
+Route::get('/weather/api/{location}', [WeatherGetController::class, 'showWeatherApi']);
+
 
 
 

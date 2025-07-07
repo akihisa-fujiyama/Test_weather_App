@@ -63,7 +63,7 @@ class WeatherInfoService
     try {
             $today = Carbon::now('Asia/Tokyo')->toDateString();
 
-            // 既存の天気情報がないか確認
+            // 既存の天気情報がないか確認　$cacheから変更
             $weatherRecord = WeatherData::where('location', $location)
                 ->where('date', $today)
                 ->first();
@@ -99,8 +99,11 @@ class WeatherInfoService
                 'lang' => 'ja',
             ]);
 
-            if (!$response->ok()) {
-                throw new \Exception('APIエラー：データを取得できませんでした。');
+                if (!$response->ok()) {
+                // ログを残す
+                \Log::error('OpenWeather APIエラー', ['status' => $response->status(), 'body' => $response->body()]);
+                // コントローラーに「失敗」とわかるようにnullを返す
+                return null;
             }
 
             $data = $response->json();
@@ -123,7 +126,7 @@ class WeatherInfoService
         }
     }
 
-
+    //getWeatherDataから分離
     private function extractWeatherInfo(array $data): array
     {
         $temp = $data['main']['temp'] ?? null;
