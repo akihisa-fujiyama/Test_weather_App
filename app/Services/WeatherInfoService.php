@@ -59,7 +59,7 @@ class WeatherInfoService
     ];
 
     public function getWeatherData(string $location): ?array
-{
+    {
         $today = Carbon::now('Asia/Tokyo')->toDateString();
 
         // 既存の天気情報がないか確認　$cacheから変更
@@ -139,7 +139,6 @@ class WeatherInfoService
         $rain = $data['rain']['1h'] ?? ($data['rain']['3h'] ?? 0);
 
         return [
-            
             'temp' => $temp,
             'description' => $description,
             'rain' => $rain,

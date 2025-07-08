@@ -31,7 +31,7 @@ class WeatherGetTestController extends Controller
 
             return response()->json([
                 'error' => 'データ取得に失敗しました。'
-            ], 400); // ここが重要！
+            ], 400); 
         }
     }
 }

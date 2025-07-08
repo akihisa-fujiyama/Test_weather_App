@@ -6,8 +6,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 use Illuminate\Support\Facades\Http;
 use App\Models\WeatherData;
+use Carbon\Carbon;
 
-class WeatherGetControllerTest extends TestCase
+class WeatherInfoGetTest extends TestCase
 {
     use RefreshDatabase; // テストごとにDBをリセット
 
@@ -83,6 +84,54 @@ class WeatherGetControllerTest extends TestCase
             'description' => '晴れ',
             'rain' => 0.2,
         ]);
+    }
+
+    /** @test */
+    //翌日に新しいデータを取得するテスト
+    public function it_fetches_new_data_on_next_day()
+    {
+        $today = now()->toDateString();
+
+        // まず今日のデータを作っておく
+        WeatherData::create([
+            'location' => '東京',
+            'date' => $today,
+            'temperature' => 25,
+            'rain' => 0.0,
+            'weather' => '晴れ',
+        ]);
+
+        // 翌日のAPIモックを設定
+        Http::fake([
+            'api.openweathermap.org/*' => Http::response([
+                'main' => ['temp' => 28],
+                'weather' => [['description' => '曇り']],
+                'rain' => ['1h' => 0.2],
+            ], 200),
+        ]);
+
+        // Carbonで翌日に進める
+        Carbon::setTestNow(now()->addDay());
+        $tomorrow = now()->toDateString();
+
+        $responseNextDay = $this->get('/weather/api/test/' . urlencode('東京'));
+        $responseNextDay->assertStatus(200);
+        $responseNextDay->assertJsonFragment([
+            'location' => '東京',
+            'temp' => 28.0,
+            'description' => '曇り',
+            'rain' => 0.2,
+        ]);
+
+        $this->assertDatabaseHas('weather_data', [
+            'location' => '東京',
+            'date' => $tomorrow,
+            'temperature' => 28,
+            'rain' => 0.2,
+            'weather' => '曇り',
+        ]);
+
+        Carbon::setTestNow(); // Carbonの固定を戻す
     }
 }
 
