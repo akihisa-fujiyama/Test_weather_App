@@ -12,7 +12,6 @@ class ErrorHandlingTest extends TestCase
 {
     use RefreshDatabase;
 
-
     /** @test */
     //架空の件が呼ばれた場合
     public function it_returns_error_when_invalid_location_is_given()
@@ -24,7 +23,7 @@ class ErrorHandlingTest extends TestCase
                 'rain' => ['1h' => 0.0],
             ], 200),
         ]);
-        $response = $this->get('/weather/api/' . urlencode('架空県'));
+        $response = $this->get('/weather/api/test/' . urlencode('架空県'));
 
         $response->assertStatus(400);
         $response->assertJson(['error' => 'データ取得に失敗しました。']);
@@ -38,7 +37,7 @@ class ErrorHandlingTest extends TestCase
             'api.openweathermap.org/*' => Http::response([], 500),
         ]);
 
-        $response = $this->get('/weather/api/' . urlencode('富山'));
+        $response = $this->get('/weather/api/test/' . urlencode('富山'));
 
         $response->assertStatus(400);
         $response->assertJson(['error' => 'データ取得に失敗しました。']);
@@ -57,8 +56,8 @@ class ErrorHandlingTest extends TestCase
         ]);
         $today = now()->toDateString();
 
-        $this->get('/weather/api/' . urlencode('東京'));
-        $this->get('/weather/api/' . urlencode('東京'));
+        $this->get('/weather/api/test/' . urlencode('東京'));
+        $this->get('/weather/api/test/' . urlencode('東京'));
 
         //東京のレコードが１件しかないことを確かめる
         $this->assertDatabaseCount('weather_data', 1);
@@ -77,7 +76,6 @@ class ErrorHandlingTest extends TestCase
     public function it_uses_cache_within_same_day()
     {
         $today = now()->toDateString();
-        dump('Today: ' . $today);
 
         WeatherData::create([
             'location' => '東京',
@@ -94,7 +92,7 @@ class ErrorHandlingTest extends TestCase
             },
         ]);
 
-        $response = $this->get('/weather/api/' . urlencode('東京'));
+        $response = $this->get('/weather/api/test/' . urlencode('東京'));
         $response->assertStatus(200);
         $response->assertJsonFragment([
             'location' => '東京',
@@ -109,7 +107,6 @@ class ErrorHandlingTest extends TestCase
     public function it_fetches_new_data_on_next_day()
     {
         $today = now()->toDateString();
-        dump('Today: ' . $today);
 
         // まず今日のデータを作っておく
         WeatherData::create([
@@ -132,9 +129,8 @@ class ErrorHandlingTest extends TestCase
         // Carbonで翌日に進める
         Carbon::setTestNow(now()->addDay());
         $tomorrow = now()->toDateString();
-        dump('Tomorrow: ' . $tomorrow);
 
-        $responseNextDay = $this->get('/weather/api/' . urlencode('東京'));
+        $responseNextDay = $this->get('/weather/api/test/' . urlencode('東京'));
         $responseNextDay->assertStatus(200);
         $responseNextDay->assertJsonFragment([
             'location' => '東京',

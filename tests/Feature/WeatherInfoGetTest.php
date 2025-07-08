@@ -12,7 +12,7 @@ class WeatherGetControllerTest extends TestCase
     use RefreshDatabase; // テストごとにDBをリセット
 
     /** @test */
-    //東京の天気予報データを初めて取得する場合
+    //今日の東京の天気予報データがすでに存在していた場合
     public function it_returns_weather_data_from_cache_if_exists()
     {
         $today = now()->toDateString();
@@ -27,7 +27,7 @@ class WeatherGetControllerTest extends TestCase
         ]);
 
         // 東京の天気情報を取得するリクエストを送信
-        $response = $this->get('/weather/api/' . urlencode('東京'));
+        $response = $this->get('/weather/api/test/' . urlencode('東京'));
 
         $response->assertStatus(200);
 
@@ -41,7 +41,7 @@ class WeatherGetControllerTest extends TestCase
     }
 
     /** @test */
-    //すでに天気情報のデータがある場合
+    //今日の天気予報情報が存在しない場合APIから天気予報情報を取得しDBに保存する場合
     public function it_fetches_weather_from_api_and_stores_to_db_if_no_cache()
     {
         $today = now()->toDateString();
@@ -64,7 +64,7 @@ class WeatherGetControllerTest extends TestCase
         ]);
 
         // 東京の天気情報を取得するリクエストを送信
-        $response = $this->get('/weather/api/' . urlencode('東京'));
+        $response = $this->get('/weather/api/test/' . urlencode('東京'));
 
         // DBに新しいデータが保存されたことを確認
         $this->assertDatabaseHas('weather_data', [
