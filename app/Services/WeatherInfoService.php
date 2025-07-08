@@ -60,70 +60,75 @@ class WeatherInfoService
 
     public function getWeatherData(string $location): ?array
 {
-    try {
-            $today = Carbon::now('Asia/Tokyo')->toDateString();
+        $today = Carbon::now('Asia/Tokyo')->toDateString();
 
-            // 既存の天気情報がないか確認　$cacheから変更
-            $weatherRecord = WeatherData::where('location', $location)
-                ->where('date', $today)
-                ->first();
+        // 既存の天気情報がないか確認　$cacheから変更
+        $weatherRecord = WeatherData::where('location', $location)
+            ->where('date', $today)
+            ->first();
 
-            if ($weatherRecord) {
-                return [
-                    'temp' => $weatherRecord->temperature,
-                    'description' => $weatherRecord->weather,
-                    'rain' => $weatherRecord->rain,
-                ];
-            }
+        if ($weatherRecord) {
+            return [
+                'temp' => $weatherRecord->temperature,
+                'description' => $weatherRecord->weather,
+                'rain' => $weatherRecord->rain,
+            ];
+        }
 
 
             // 都道府県名チェック
-            try {
-                if (!isset($this->prefectureKanjiToCity[$location])) {
-                    throw new \Exception("不正な都道府県名が指定されました: {$location}");
-                }
-                $city = $this->prefectureKanjiToCity[$location];
-            } catch (\Exception $e) {
-                \Log::error('都道府県名エラー', ['message' => $e->getMessage()]);
-                return null; // エラー時はnullを返して終了
-            }
+        if (!isset($this->prefectureKanjiToCity[$location])) {
+            $message = "不正な都道府県名が指定されました: {$location}";
+            \Log::error('都道府県名エラー', ['message' => $message]);
+            throw new \InvalidArgumentException($message);
+        }
 
-            //APIから情報取得
-            $city = $this->prefectureKanjiToCity[$location];
-            $apiKey = config('services.openweather.key');
+        $city = $this->prefectureKanjiToCity[$location];
 
+
+        //APIから情報取得
+        $city = $this->prefectureKanjiToCity[$location];
+        $apiKey = config('services.openweather.key');
+
+        try {
             $response = Http::get('https://api.openweathermap.org/data/2.5/weather', [
                 'q' => $city . ',jp',
                 'appid' => $apiKey,
                 'units' => 'metric',
                 'lang' => 'ja',
             ]);
-
-                if (!$response->ok()) {
-                // ログを残す
-                \Log::error('OpenWeather APIエラー', ['status' => $response->status(), 'body' => $response->body()]);
-                // コントローラーに「失敗」とわかるようにnullを返す
-                return null;
-            }
-
-            $data = $response->json();
-
-            $weatherInfo = $this->extractWeatherInfo($data);
-
-            //DBに天気情報保存
-            WeatherData::create([
-                'location' => $location,
-                'date' => $today,
-                'temperature' => $weatherInfo['temp'],
-                'rain' => $weatherInfo['rain'],
-                'weather' => $weatherInfo['description'],
-            ]);
-
-            return $weatherInfo;
         } catch (\Exception $e) {
-            \Log::error('天気情報取得エラー', ['message' => $e->getMessage()]);
-            return null; // 失敗時はnullを返してコントローラーでエラーハンドリング
+            \Log::error('API呼び出し中にエラーが発生: ' . $e->getMessage());
+            throw new \RuntimeException('天気APIの取得に失敗しました。', 0, $e);
         }
+
+                //api通信の返答が失敗した時。
+        if (!$response->ok()) {
+            // エラーログを残す
+            \Log::error('OpenWeather APIエラー', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+        ]);
+
+            // エラーステータスに応じて例外をスロー
+            throw new \RuntimeException('OpenWeather APIからエラー応答が返されました。ステータスコード: ' . $response->status());
+        }
+
+
+        $data = $response->json();
+
+        $weatherInfo = $this->extractWeatherInfo($data);
+
+        //DBに天気情報保存
+        WeatherData::create([
+            'location' => $location,
+            'date' => $today,
+            'temperature' => $weatherInfo['temp'],
+            'rain' => $weatherInfo['rain'],
+            'weather' => $weatherInfo['description'],
+        ]);
+
+        return $weatherInfo;
     }
 
     //getWeatherDataから分離
@@ -134,6 +139,7 @@ class WeatherInfoService
         $rain = $data['rain']['1h'] ?? ($data['rain']['3h'] ?? 0);
 
         return [
+            
             'temp' => $temp,
             'description' => $description,
             'rain' => $rain,
